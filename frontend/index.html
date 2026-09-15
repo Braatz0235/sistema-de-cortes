@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sistema de Cortes</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">✂️</span>
+      <span class="brand-name">Sistema de Cortes</span>
+    </div>
+    <p class="tagline">Suba um vídeo, receba os melhores cortes prontos para cada rede social.</p>
+  </header>
+
+  <main class="container">
+
+    <!-- Upload -->
+    <section id="upload-section" class="panel">
+      <h2>1. Envie o vídeo</h2>
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="file-input" accept="video/*" hidden />
+        <div class="dropzone-content">
+          <div class="dropzone-icon">📤</div>
+          <p><strong>Clique para escolher</strong> ou arraste um vídeo aqui</p>
+          <p class="hint">MP4, MOV, MKV, WEBM, AVI, M4V</p>
+        </div>
+      </div>
+      <div id="upload-progress" class="progress-row hidden">
+        <div class="progress-bar"><div id="upload-progress-fill" class="progress-fill"></div></div>
+        <span id="upload-progress-label">Enviando...</span>
+      </div>
+    </section>
+
+    <!-- Processing status -->
+    <section id="status-section" class="panel hidden">
+      <h2>2. Analisando o vídeo</h2>
+      <div class="status-row">
+        <div class="spinner"></div>
+        <div>
+          <p id="status-label">Na fila...</p>
+          <p class="hint" id="status-hint">Extraindo áudio, transcrevendo e detectando os melhores momentos.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error -->
+    <section id="error-section" class="panel error hidden">
+      <h2>Ops, algo deu errado</h2>
+      <p id="error-message"></p>
+      <button id="retry-button" class="btn">Enviar outro vídeo</button>
+    </section>
+
+    <!-- Clips -->
+    <section id="clips-section" class="panel hidden">
+      <div class="clips-header">
+        <h2>3. Escolha o formato de cada corte</h2>
+        <button id="new-video-button" class="btn btn-ghost">Enviar outro vídeo</button>
+      </div>
+      <p class="hint">Marque uma ou mais plataformas por corte e clique em "Gerar" para exportar no formato certo para cada destino.</p>
+      <div id="clips-list" class="clips-list"></div>
+    </section>
+
+  </main>
+
+  <div id="preview-modal" class="modal hidden">
+    <div class="modal-backdrop" id="preview-backdrop"></div>
+    <div class="modal-content">
+      <button id="preview-close" class="modal-close" aria-label="Fechar">✕</button>
+      <video id="preview-video" controls playsinline></video>
+      <p id="preview-caption" class="hint"></p>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

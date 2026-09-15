@@ -1,0 +1,10 @@
+storage/videos/*
+!storage/videos/.gitkeep
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.env
+node_modules/
+.DS_Store
