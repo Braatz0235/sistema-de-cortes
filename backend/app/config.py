@@ -8,11 +8,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STORAGE_DIR = Path(os.environ.get("STORAGE_DIR", BASE_DIR / "storage" / "videos"))
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Transcription (faster-whisper). "base" is a good speed/accuracy tradeoff on CPU.
+# Transcription. By default runs faster-whisper locally (free, no API key,
+# but downloads a model on first use). If OPENAI_API_KEY is set, uses
+# OpenAI's hosted Whisper API instead - no local model/download needed.
 WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "base")
 WHISPER_DEVICE = os.environ.get("WHISPER_DEVICE", "cpu")
 WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
 WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE") or None  # None = auto-detect
+
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_STT_MODEL = os.environ.get("OPENAI_STT_MODEL", "whisper-1")
 
 # Highlight detection via Claude. Falls back to a local heuristic when unset.
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")

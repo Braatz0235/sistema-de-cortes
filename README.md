@@ -12,7 +12,11 @@ X/Twitter, LinkedIn ou o formato original).
 2. **Análise** (processo em segundo plano):
    - `ffprobe` extrai duração/resolução.
    - `ffmpeg` extrai o áudio.
-   - `faster-whisper` transcreve a fala com timestamps por palavra.
+   - A fala é transcrita com timestamps por palavra — por padrão usando
+     `faster-whisper` localmente (grátis, mas baixa um modelo na primeira
+     vez); **se `OPENAI_API_KEY` estiver configurada**, usa a API de
+     transcrição da OpenAI (Whisper) na nuvem em vez disso, sem precisar
+     baixar nada.
    - A transcrição é enviada para o Claude (Anthropic), que devolve os
      melhores trechos (início/fim, título, resumo, score, plataformas
      sugeridas, hashtags). **Sem `ANTHROPIC_API_KEY` configurada**, um
@@ -114,15 +118,18 @@ de aceitar).
 | `WHISPER_MODEL_SIZE` | `base` | tamanho do modelo faster-whisper (`tiny`, `base`, `small`, `medium`, `large-v3`) |
 | `WHISPER_DEVICE` | `cpu` | `cpu` ou `cuda` |
 | `WHISPER_COMPUTE_TYPE` | `int8` | precisão do faster-whisper |
+| `OPENAI_API_KEY` | — | ativa a transcrição via API da OpenAI; sem ela, usa o `faster-whisper` local |
+| `OPENAI_STT_MODEL` | `whisper-1` | modelo usado na API de transcrição da OpenAI |
 | `ANTHROPIC_API_KEY` | — | ativa a seleção de cortes por IA; sem ela, usa o heurístico local |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | modelo usado para escolher os cortes |
 | `MIN_CLIP_SECONDS` / `MAX_CLIP_SECONDS` | `15` / `90` | duração alvo de cada corte |
 | `MAX_CLIPS` | `8` | número máximo de cortes sugeridos por vídeo |
 | `MAX_UPLOAD_BYTES` | 2 GB | tamanho máximo de upload |
 
-Observação: o `faster-whisper` baixa o modelo do Hugging Face no primeiro
-uso (fica em cache depois). Isso exige acesso à internet nessa primeira
-execução.
+Observação: no modo padrão (local), o `faster-whisper` baixa o modelo do
+Hugging Face no primeiro uso (fica em cache depois), o que exige internet
+nessa primeira execução. Configurando `OPENAI_API_KEY`, não há download
+nenhum — a transcrição roda na nuvem via API da OpenAI.
 
 ## Testes
 

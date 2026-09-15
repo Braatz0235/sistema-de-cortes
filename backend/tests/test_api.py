@@ -62,6 +62,7 @@ def test_health(client):
     body = res.json()
     assert body["ffmpeg_available"] is True
     assert body["highlight_detection"] in ("claude", "heuristic")
+    assert body["transcription"] in ("openai", "local")
 
 
 def test_upload_rejects_bad_extension(client):

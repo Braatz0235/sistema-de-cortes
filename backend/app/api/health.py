@@ -17,5 +17,6 @@ def health():
         "status": "ok" if ffmpeg_ok else "degraded",
         "ffmpeg_available": ffmpeg_ok,
         "highlight_detection": "claude" if config.ANTHROPIC_API_KEY else "heuristic",
-        "whisper_model": config.WHISPER_MODEL_SIZE,
+        "transcription": "openai" if config.OPENAI_API_KEY else "local",
+        "whisper_model": config.OPENAI_STT_MODEL if config.OPENAI_API_KEY else config.WHISPER_MODEL_SIZE,
     }
