@@ -1,0 +1,11 @@
+.git
+.gitignore
+README.md
+backend/.venv
+backend/**/__pycache__
+backend/.pytest_cache
+backend/**/*.pyc
+storage/videos/*
+!storage/videos/.gitkeep
+.env
+node_modules

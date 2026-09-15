@@ -7,6 +7,7 @@ from repeated re-encoding.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -16,6 +17,10 @@ from ..models import FORMAT_DIMENSIONS, ClipFormat
 
 class FFmpegError(RuntimeError):
     pass
+
+
+def is_available() -> bool:
+    return shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
 
 
 def run(cmd: list[str], timeout: Optional[float] = None) -> str:

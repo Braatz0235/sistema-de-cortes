@@ -32,6 +32,7 @@ X/Twitter, LinkedIn ou o formato original).
 ## Estrutura
 
 ```
+Dockerfile / docker-compose.yml / .env.example   # deploy com um comando
 backend/
   app/
     main.py              # app FastAPI + serve o frontend estático
@@ -39,7 +40,9 @@ backend/
     models.py              # schemas (VideoJob, Clip, Export, presets de plataforma)
     storage.py             # persistência em JSON por vídeo (sem banco de dados)
     jobs.py                 # orquestração em thread pool: análise e exportação
-    api/videos.py            # rotas HTTP
+    api/
+      videos.py               # rotas HTTP (upload, cortes, exportação, download)
+      health.py                # GET /api/health (ffmpeg disponível? IA ou heurístico?)
     pipeline/
       ffmpeg_utils.py         # probe, corte, reformatação, filtro de legenda
       captions.py               # geração de legendas .ass a partir dos timestamps
@@ -51,7 +54,30 @@ frontend/
 storage/videos/                        # dados de runtime (gitignored)
 ```
 
-## Rodando localmente
+## Rodando com Docker (recomendado)
+
+Pré-requisito: Docker + Docker Compose.
+
+```bash
+cp .env.example .env
+# edite o .env se quiser usar o Claude (ANTHROPIC_API_KEY) ou trocar o
+# tamanho do modelo de transcrição — nenhum dos dois é obrigatório
+
+docker compose up --build
+```
+
+Abra `http://localhost:8000`. Os vídeos ficam em `./storage/videos` no host
+(persistem entre reinícios) e o modelo do `faster-whisper` fica num volume
+Docker próprio, baixado só na primeira vez que um vídeo é processado.
+
+> Não foi possível rodar um `docker build` de ponta a ponta durante o
+> desenvolvimento porque este ambiente de sandbox bloqueia o download de
+> imagens do Docker Hub por política de rede — o `Dockerfile` foi revisado
+> manualmente linha a linha (os caminhos batem com `config.py`/`main.py`,
+> que já foram testados de verdade). Rode `docker compose up --build` e,
+> se algo não bater, me avise.
+
+## Rodando sem Docker
 
 Pré-requisitos: Python 3.11+, `ffmpeg`/`ffprobe` no PATH.
 
@@ -67,6 +93,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Abra `http://localhost:8000` — o próprio FastAPI serve o frontend.
+
+### Verificando se está tudo certo
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+Retorna se o `ffmpeg` foi encontrado e se a seleção de cortes está usando
+Claude ou o heurístico local. O upload de vídeo é recusado (erro 503) se o
+`ffmpeg` não estiver disponível, e qualquer arquivo que não seja um vídeo
+válido é rejeitado no próprio upload (o servidor roda `ffprobe` nele antes
+de aceitar).
 
 ### Variáveis de ambiente
 

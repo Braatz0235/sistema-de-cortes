@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from .. import config, jobs
 from ..models import (
@@ -20,6 +21,7 @@ from ..models import (
     VideoStatus,
     new_id,
 )
+from ..pipeline import ffmpeg_utils
 from ..storage import store
 
 router = APIRouter(prefix="/api")
@@ -54,6 +56,12 @@ def list_videos():
 
 @router.post("/videos", status_code=201)
 async def upload_video(file: UploadFile = File(...)):
+    if not ffmpeg_utils.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="ffmpeg não está instalado no servidor; instale o ffmpeg antes de enviar vídeos.",
+        )
+
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in config.ALLOWED_VIDEO_EXTENSIONS:
         raise HTTPException(
@@ -90,6 +98,18 @@ async def upload_video(file: UploadFile = File(...)):
     if written == 0:
         store.delete(video_id)
         raise HTTPException(status_code=400, detail="arquivo vazio")
+
+    try:
+        info = await run_in_threadpool(ffmpeg_utils.probe, dest)
+    except ffmpeg_utils.FFmpegError:
+        info = None
+
+    if info is None or not info.get("width") or not info.get("duration"):
+        store.delete(video_id)
+        raise HTTPException(
+            status_code=400,
+            detail="não foi possível ler este arquivo como vídeo; ele pode estar corrompido ou em um formato não suportado.",
+        )
 
     jobs.submit_video_processing(video_id)
     return {"id": video_id, "status": job.status}

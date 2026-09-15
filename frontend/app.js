@@ -56,6 +56,21 @@ async function loadPlatforms() {
   platforms = await fetchJSON(`${API}/platforms`);
 }
 
+async function checkHealth() {
+  try {
+    const health = await fetchJSON(`${API}/health`);
+    const banner = el("health-banner");
+    if (!health.ffmpeg_available) {
+      banner.textContent = "⚠ O servidor não encontrou o ffmpeg instalado. Envios de vídeo serão recusados até isso ser corrigido.";
+      banner.classList.remove("hidden");
+    } else {
+      banner.classList.add("hidden");
+    }
+  } catch (err) {
+    console.error("Falha ao checar /api/health", err);
+  }
+}
+
 /* ---------------- Upload ---------------- */
 
 function initUpload() {
@@ -96,6 +111,7 @@ function resetToUpload() {
   el("file-input").value = "";
   el("upload-progress").classList.add("hidden");
   el("upload-progress-fill").style.width = "0%";
+  el("video-meta").textContent = "";
   showOnly("upload-section");
 }
 
@@ -200,6 +216,12 @@ function platformChip(clipId, platform) {
 }
 
 function renderClips(job) {
+  const meta = el("video-meta");
+  const parts = [job.original_filename];
+  if (job.duration) parts.push(fmtTime(job.duration));
+  if (job.width && job.height) parts.push(`${job.width}×${job.height}`);
+  meta.textContent = parts.filter(Boolean).join(" · ");
+
   const list = el("clips-list");
   list.innerHTML = "";
 
@@ -391,6 +413,7 @@ async function init() {
   } catch (err) {
     console.error("Falha ao carregar plataformas", err);
   }
+  checkHealth();
 }
 
 init();

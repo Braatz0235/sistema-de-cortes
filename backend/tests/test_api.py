@@ -1,3 +1,7 @@
+import subprocess
+import tempfile
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -9,9 +13,10 @@ from app.storage import store
 
 @pytest.fixture(autouse=True)
 def no_background_jobs(monkeypatch):
-    # Keep tests from spawning real ffmpeg/whisper/Claude work; api/videos.py
-    # calls `jobs.submit_...`, and it imported the same module object, so
-    # patching these attributes here reaches it too.
+    # Keep tests from spawning real whisper/Claude work; api/videos.py calls
+    # `jobs.submit_...`, and it imported the same module object, so patching
+    # these attributes here reaches it too. (ffmpeg itself stays real: the
+    # upload route now probes the file for real to validate it's a video.)
     monkeypatch.setattr(jobs_module, "submit_video_processing", lambda video_id: None)
     monkeypatch.setattr(jobs_module, "submit_export", lambda video_id, export_id: None)
 
@@ -21,13 +26,25 @@ def client():
     return TestClient(app)
 
 
-def _fake_video_bytes():
-    return b"\x00\x00\x00\x18ftypmp42" + b"0" * 1024
+@pytest.fixture(scope="session")
+def tiny_video_bytes():
+    """A real, tiny, valid .mp4 - the upload route now runs ffprobe on what's
+    saved, so tests need an actual video, not just plausible-looking bytes."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "tiny.mp4"
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=blue:size=64x64:rate=5:duration=1",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", str(path),
+            ],
+            check=True, capture_output=True,
+        )
+        return path.read_bytes()
 
 
-def _upload(client):
-    res = client.post("/api/videos", files={"file": ("clip.mp4", _fake_video_bytes(), "video/mp4")})
-    assert res.status_code == 201
+def _upload(client, tiny_video_bytes):
+    res = client.post("/api/videos", files={"file": ("clip.mp4", tiny_video_bytes, "video/mp4")})
+    assert res.status_code == 201, res.text
     return res.json()["id"]
 
 
@@ -39,13 +56,28 @@ def test_list_platforms(client):
     assert any(p["id"] == "youtube" for p in data)
 
 
+def test_health(client):
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ffmpeg_available"] is True
+    assert body["highlight_detection"] in ("claude", "heuristic")
+
+
 def test_upload_rejects_bad_extension(client):
     res = client.post("/api/videos", files={"file": ("clip.txt", b"hello", "text/plain")})
     assert res.status_code == 400
 
 
-def test_upload_and_get_video(client):
-    video_id = _upload(client)
+def test_upload_rejects_invalid_video_content(client):
+    garbage = b"\x00\x00\x00\x18ftypmp42" + b"0" * 1024
+    res = client.post("/api/videos", files={"file": ("clip.mp4", garbage, "video/mp4")})
+    assert res.status_code == 400
+    assert "vídeo" in res.json()["detail"]
+
+
+def test_upload_and_get_video(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
 
     res = client.get(f"/api/videos/{video_id}")
     assert res.status_code == 200
@@ -55,8 +87,8 @@ def test_upload_and_get_video(client):
     assert "transcript" not in body
 
 
-def test_video_appears_in_list(client):
-    video_id = _upload(client)
+def test_video_appears_in_list(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
     res = client.get("/api/videos")
     assert res.status_code == 200
     ids = [v["id"] for v in res.json()]
@@ -68,14 +100,14 @@ def test_get_unknown_video_404(client):
     assert res.status_code == 404
 
 
-def test_export_requires_ready_status(client):
-    video_id = _upload(client)
+def test_export_requires_ready_status(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
     res = client.post(f"/api/videos/{video_id}/clips/whatever/exports", json={"platform": "tiktok"})
     assert res.status_code == 409
 
 
-def test_export_flow_when_ready(client):
-    video_id = _upload(client)
+def test_export_flow_when_ready(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
     clip = Clip(start=0.0, end=20.0, title="Teste", summary="resumo", score=80)
 
     def mark_ready(job):
@@ -99,15 +131,15 @@ def test_export_flow_when_ready(client):
     assert res2.json()["id"] == export["id"]
 
 
-def test_export_unknown_clip_404(client):
-    video_id = _upload(client)
+def test_export_unknown_clip_404(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
     store.update(video_id, lambda job: setattr(job, "status", VideoStatus.READY))
     res = client.post(f"/api/videos/{video_id}/clips/nope/exports", json={"platform": "tiktok"})
     assert res.status_code == 404
 
 
-def test_export_unknown_platform_rejected(client):
-    video_id = _upload(client)
+def test_export_unknown_platform_rejected(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
     clip = Clip(start=0.0, end=20.0, title="Teste", summary="resumo", score=80)
 
     def mark_ready(job):
@@ -120,8 +152,8 @@ def test_export_unknown_platform_rejected(client):
     assert res.status_code == 400
 
 
-def test_export_format_overrides_platform_default(client):
-    video_id = _upload(client)
+def test_export_format_overrides_platform_default(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
     clip = Clip(start=0.0, end=20.0, title="Teste", summary="resumo", score=80)
 
     def mark_ready(job):
@@ -138,8 +170,8 @@ def test_export_format_overrides_platform_default(client):
     assert res.json()["format"] == "horizontal"
 
 
-def test_delete_video(client):
-    video_id = _upload(client)
+def test_delete_video(client, tiny_video_bytes):
+    video_id = _upload(client, tiny_video_bytes)
     res = client.delete(f"/api/videos/{video_id}")
     assert res.status_code == 204
     res2 = client.get(f"/api/videos/{video_id}")

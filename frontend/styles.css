@@ -310,6 +310,15 @@ body {
   .clip-top { flex-direction: column; }
 }
 
+.banner-warning {
+  background: rgba(255, 92, 122, 0.12);
+  border: 1px solid var(--danger);
+  color: #ffd0da;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+}
+
 .modal {
   position: fixed;
   inset: 0;
