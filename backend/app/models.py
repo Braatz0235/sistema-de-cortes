@@ -6,7 +6,7 @@ import uuid
 from enum import StrEnum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 def new_id() -> str:
@@ -95,6 +95,7 @@ class Clip(BaseModel):
     hashtags: list[str] = Field(default_factory=list)
     transcript_excerpt: str = ""
 
+    @computed_field
     @property
     def duration(self) -> float:
         return round(self.end - self.start, 2)

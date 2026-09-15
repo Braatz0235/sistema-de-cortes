@@ -170,13 +170,22 @@ def _heuristic_highlights_raw(segments: list[TranscriptSegment], duration: float
                 break
             acc += scores[j]
             end = segments[j].end
-            if end - start >= min_s:
-                candidates.append({"start": start, "end": end, "score": acc})
+            dur = end - start
+            if dur >= min_s:
+                # Rank by score *density* (points per second), not raw sum: a raw
+                # sum always favors the longest window, since it keeps accumulating
+                # more segments' scores, which would just return ~the whole video
+                # as "the highlight" instead of a tight, concentrated moment.
+                density = acc / dur
+                candidates.append({
+                    "start": start, "end": end, "density": density,
+                    "score": round(min(100, 35 + density * 25), 1),
+                })
 
     if not candidates:
         return _equal_windows(duration, min_s, max_s, max_clips)
 
-    candidates.sort(key=lambda c: c["score"], reverse=True)
+    candidates.sort(key=lambda c: c["density"], reverse=True)
     chosen: list[dict] = []
     for c in candidates:
         overlaps = any(not (c["end"] <= ch["start"] or c["start"] >= ch["end"]) for ch in chosen)
